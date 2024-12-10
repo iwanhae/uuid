@@ -1,16 +1,55 @@
 package uuid
 
 import (
+	"fmt"
 	"sync"
 	"time"
 )
 
-type V7 [16]byte
+type V7 struct {
+	UUID `json:",inline"`
+}
 
 func NewV7() V7 {
-	v4 := NewV4()
+	v4 := NewV4().UUID
 	makeV7(v4[:])
-	return V7(v4)
+	return V7{UUID: v4}
+}
+
+func (v *V7) Parse(uuid string) error {
+	u, err := Parse(uuid)
+	if err != nil {
+		return err
+	}
+	if version := u.Version(); version != Version7 {
+		return fmt.Errorf("expect uuid v7, but get uuid v%d", version)
+	}
+	v.UUID = u
+	return nil
+}
+
+func (v *V7) Timestamp() time.Time {
+	// Extract milliseconds from the first 48 bits (6 bytes)
+	msec := int64(v.UUID[0])<<40 |
+		int64(v.UUID[1])<<32 |
+		int64(v.UUID[2])<<24 |
+		int64(v.UUID[3])<<16 |
+		int64(v.UUID[4])<<8 |
+		int64(v.UUID[5])
+
+	// Convert milliseconds to time.Time
+	return time.UnixMilli(msec)
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (u *V7) UnmarshalJSON(data []byte) error {
+	if err := u.UUID.UnmarshalJSON(data); err != nil {
+		return err
+	}
+	if u.UUID.Version() != Version7 {
+		return fmt.Errorf("expect uuid v7, but get uuid v%d", u.UUID.Version())
+	}
+	return nil
 }
 
 // Copied from

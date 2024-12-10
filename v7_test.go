@@ -1,28 +1,30 @@
 package uuid_test
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
-	"gosuda.org/uuid"
+	"github.com/iwanhae/uuid"
 )
 
 func TestNewV7(t *testing.T) {
-	id := uuid.NewV7()
+	id := uuid.NewV7().UUID
 	if len(id) != 16 {
 		t.Errorf("NewV7() returned UUID with length %d, want 16", len(id))
 	}
 }
 
 func TestUUIDV7Version(t *testing.T) {
-	uuid := uuid.NewV7()
+	uuid := uuid.NewV7().UUID
 	if (uuid[6] & 0xf0) != 0x70 {
 		t.Errorf("UUID version is not 7, got 0x%x", uuid[6])
 	}
 }
 
 func TestUUIDV7Variant(t *testing.T) {
-	uuid := uuid.NewV7()
+	uuid := uuid.NewV7().UUID
 	if (uuid[8] & 0x80) != 0x80 {
 		t.Errorf("UUID variant is not IETF variant DCE 1.1, got 0x%x", uuid[8])
 	}
@@ -50,4 +52,76 @@ func BenchmarkConcurrencyNewV7(b *testing.B) {
 			uuid.NewV7()
 		}
 	})
+}
+
+func TestV7_Parse(t *testing.T) {
+	type fields struct {
+		UUID uuid.UUID
+	}
+	type args struct {
+		uuid string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name:    "success",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: uuid.NewV7().UUID.String()},
+			wantErr: false,
+		},
+		{
+			name:    "got V4",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: uuid.NewV4().UUID.String()},
+			wantErr: true,
+		},
+		{
+			name:    "invalid UUID",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: "invalid UUID string"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &uuid.V7{
+				UUID: tt.fields.UUID,
+			}
+			if err := v.Parse(tt.args.uuid); (err != nil) != tt.wantErr {
+				t.Errorf("V7.Parse() error = %v, wantErr %v", err, tt.wantErr)
+			} else if err == nil && v.UUID.String() != tt.args.uuid {
+				t.Errorf("V7.Parse() value = %v, wantVal %v", v.UUID.String(), tt.args.uuid)
+			}
+		})
+	}
+}
+
+func TestV7_Timestamp(t *testing.T) {
+	tests := []struct {
+		uuid string
+		want time.Time
+	}{
+		{
+			uuid: "CJ3jCjSbtk3AD61cAW2N6",
+			want: time.Date(2024, 12, 10, 18, 26, 21, 887_000_000, time.Local),
+		},
+		{
+			uuid: "CJ3jZW7G1oKGgjya54nhY",
+			want: time.Date(2024, 12, 10, 18, 31, 03, 652_000_000, time.Local),
+		},
+	}
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("%02d", i), func(t *testing.T) {
+			v := &uuid.V7{}
+			v.Parse(tt.uuid)
+			fmt.Println(v.String())
+			if got := v.Timestamp(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("V7.Timestamp() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

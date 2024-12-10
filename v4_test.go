@@ -1,28 +1,27 @@
-// /Users/iwanhae/git/uuid/v4_test.go
 package uuid_test
 
 import (
 	"testing"
 
-	"gosuda.org/uuid"
+	"github.com/iwanhae/uuid"
 )
 
 func TestNewV4(t *testing.T) {
-	id := uuid.NewV4()
+	id := uuid.NewV4().UUID
 	if len(id) != 16 {
 		t.Errorf("NewV4() returned UUID with length %d, want 16", len(id))
 	}
 }
 
 func TestUUIDVersion(t *testing.T) {
-	uuid := uuid.NewV4()
+	uuid := uuid.NewV4().UUID
 	if (uuid[6] & 0xf0) != 0x40 {
 		t.Errorf("UUID version is not 4, got 0x%x", uuid[6])
 	}
 }
 
 func TestUUIDVariant(t *testing.T) {
-	uuid := uuid.NewV4()
+	uuid := uuid.NewV4().UUID
 	if (uuid[8] & 0xc0) != 0x80 {
 		t.Errorf("UUID variant is not 10, got 0x%x", uuid[8])
 	}
@@ -49,4 +48,50 @@ func BenchmarkConcurrencyNewV4(b *testing.B) {
 			uuid.NewV4()
 		}
 	})
+}
+
+func TestV4_Parse(t *testing.T) {
+	type fields struct {
+		UUID uuid.UUID
+	}
+	type args struct {
+		uuid string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name:    "success",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: uuid.NewV4().UUID.String()},
+			wantErr: false,
+		},
+		{
+			name:    "got V7",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: uuid.NewV7().UUID.String()},
+			wantErr: true,
+		},
+		{
+			name:    "invalid UUID",
+			fields:  fields{UUID: uuid.Nil},
+			args:    args{uuid: "invalid UUID string"},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &uuid.V4{
+				UUID: tt.fields.UUID,
+			}
+			if err := v.Parse(tt.args.uuid); (err != nil) != tt.wantErr {
+				t.Errorf("V4.Parse() error = %v, wantErr %v", err, tt.wantErr)
+			} else if err == nil && v.UUID.String() != tt.args.uuid {
+				t.Errorf("V4.Parse() value = %v, wantVal %v", v.UUID.String(), tt.args.uuid)
+			}
+		})
+	}
 }
